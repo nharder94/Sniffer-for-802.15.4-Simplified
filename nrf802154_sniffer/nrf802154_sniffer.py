@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright (c) 2019, Nordic Semiconductor ASA
 # All rights reserved.
@@ -69,9 +69,9 @@ class Nrf802154Sniffer(object):
     DLT_IEEE802_15_4_NOFCS = 230
     DLT_IEEE802_15_4_TAP = 283
 
-    # USB device identification.
-    NORDICSEMI_VID = 0x1915
-    SNIFFER_802154_PID = 0x154A
+    # USB device identification. - Changed to FTDI
+    NORDICSEMI_VID = 0x0403
+    SNIFFER_802154_PID = 0x6015
 
     # Helpers for Wireshark argument parsing.
     CTRL_ARG_CHANNEL = 0
@@ -80,7 +80,7 @@ class Nrf802154Sniffer(object):
     # Pattern for packets being printed over serial.
     RCV_REGEX = 'received:\s+([0-9a-fA-F]+)\s+power:\s+(-?\d+)\s+lqi:\s+(\d+)\s+time:\s+(-?\d+)'
 
-    TIMER_MAX = 2**32
+    TIMER_MAX = 2**40 * (1.0 / 499.2e6 / 128.0) * 1e6; # changed
 
     def __init__(self, connection_open_timeout=None):
         self.serial = None
@@ -94,7 +94,7 @@ class Nrf802154Sniffer(object):
         self.dlt = None
         self.threads = []
         self.connection_open_timeout = connection_open_timeout
-
+        print ("hello!")
         # Time correction variables.
         self.first_local_timestamp = None
         self.first_sniffer_timestamp = None
@@ -103,12 +103,12 @@ class Nrf802154Sniffer(object):
         """
         Function responsible for correcting the time reported by the sniffer.
         The sniffer timer has 1us resolution and will overflow after
-        approximately every 72 minutes of operation.
+        approximately every 17 seconds (CHANGED) of operation.
         For that reason it is necessary to use the local system timer to find the absolute
         time frame, within which the packet has arrived.
 
         This method should work as long as the MCU and PC timers don't drift
-        from each other by a value of approximately 36 minutes.
+        from each other by a value of approximately 8 seconds.
 
         :param sniffer_timestamp: sniffer timestamp in microseconds
         :return: absolute sniffer timestamp in microseconds
@@ -366,23 +366,23 @@ class Nrf802154Sniffer(object):
             self.serial.reset_input_buffer()
             self.serial.reset_output_buffer()
 
-            init_cmd = []
-            init_cmd.append(b'')
-            init_cmd.append(b'sleep')
-            init_cmd.append(b'channel ' + bytes(str(channel).encode()))
-            for cmd in init_cmd:
-                self.serial_queue.put(cmd)
+            #init_cmd = []
+            #init_cmd.append(b'')
+            #init_cmd.append(b'sleep')
+            #init_cmd.append(b'channel ' + bytes(str(channel).encode()))
+            #for cmd in init_cmd:
+            #    self.serial_queue.put(cmd)
 
             # Function serial_write appends twice '\r\n' to each command, so we have to calculate that for the echo.
-            init_res = self.serial.read(len(b"".join(c + b"\r\n\r\n" for c in init_cmd)))
+            #init_res = self.serial.read(len(b"".join(c + b"\r\n\r\n" for c in init_cmd)))
 
-            if not all(cmd.decode() in init_res.decode() for cmd in init_cmd):
-                msg = "{} did not reply properly to setup commands. Please re-plug the device and make sure firmware is correct. " \
-                        "Recieved: {}\n".format(self, init_res)
-                self.logger.error(msg)
+            #if not all(cmd.decode() in init_res.decode() for cmd in init_cmd):
+            #    msg = "{} did not reply properly to setup commands. Please re-plug the device and make sure firmware is correct. " \
+            #            "Recieved: {}\n".format(self, init_res)
+            #    self.logger.error(msg)
 
-            self.serial_queue.put(b'receive')
-            self.setup_done.set()
+            #self.serial_queue.put(b'receive')
+            #self.setup_done.set()
 
             buf = b''
 
