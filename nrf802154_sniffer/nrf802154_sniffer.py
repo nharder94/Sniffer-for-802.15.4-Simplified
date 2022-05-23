@@ -265,8 +265,8 @@ class Nrf802154Sniffer(object):
         elif dlt == Nrf802154Sniffer.DLT_USER0:
             caplength += 6
 
-        pcap += struct.pack('<L', timestamp // 1000000 ) # Timestamp seconds
-        pcap += struct.pack('<L', timestamp % 1000000 ) # Timestamp microseconds
+        pcap += struct.pack('<L', round(timestamp) // 1000000 ) # Timestamp seconds
+        pcap += struct.pack('<L', round(timestamp) % 1000000 ) # Timestamp microseconds
         pcap += struct.pack('<L', caplength ) # Length captured
         pcap += struct.pack('<L', caplength ) # Length in frame
 
@@ -346,14 +346,16 @@ class Nrf802154Sniffer(object):
         """
         Thread responsible for reading from serial port, parsing the output and storing parsed packets into queue.
         """
+        print("Start reader thread")
         time.sleep(2)
 
         timeout = time.time() + self.connection_open_timeout if self.connection_open_timeout else None
         while self.running.is_set():
             try:
-                self.serial = Serial(dev, timeout=1, exclusive=True)
+                self.serial = Serial(dev, baudrate=115200, timeout=1, exclusive=True)
                 break
             except Exception as e:
+                print(e)
                 if timeout and time.time() > timeout:
                     self.running.clear()
                     raise Exception(
@@ -361,7 +363,7 @@ class Nrf802154Sniffer(object):
                             self.connection_open_timeout))
                 self.logger.debug("Can't open serial device: {} reason: {}".format(dev, e))
                 time.sleep(0.5)
-
+        print("Connected!")
         try:
             self.serial.reset_input_buffer()
             self.serial.reset_output_buffer()
@@ -382,7 +384,7 @@ class Nrf802154Sniffer(object):
             #    self.logger.error(msg)
 
             #self.serial_queue.put(b'receive')
-            #self.setup_done.set()
+            self.setup_done.set()
 
             buf = b''
 
@@ -390,9 +392,10 @@ class Nrf802154Sniffer(object):
                 ch = self.serial.read()
                 if ch == b'':
                     continue
-                elif ch != b'\n' and ch != '\n':
+                elif ch != b'\r' and ch != '\r':
                     buf += ch
                 else:
+                    print(buf)
                     m = re.search(self.RCV_REGEX, str(buf))
                     if m:
                         packet = a2b_hex(m.group(1)[:-4])
@@ -400,6 +403,7 @@ class Nrf802154Sniffer(object):
                         lqi = int(m.group(3))
                         timestamp = int(m.group(4)) & 0xffffffff
                         channel = int(channel)
+                        print(packet, rssi, lqi, timestamp, channel)
                         queue.put(self.pcap_packet(packet, self.dlt, channel, rssi, lqi, self.correct_time(timestamp)))
                     buf = b''
 
